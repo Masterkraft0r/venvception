@@ -11,8 +11,8 @@ import tomllib
 import typing as t
 
 
-class Include(t.TypedDict):
-    include: str
+class Inherit(t.TypedDict):
+    inherit: str
 
 
 PackageSpec = str
@@ -20,7 +20,7 @@ Dependencies = tuple[PackageSpec, ...]
 TOMLDependencies = list[PackageSpec]
 Package = tuple[PackageSpec, tuple[PackageSpec, ...]]
 Tool = PackageSpec | Package
-ToolGroup = set[Tool | Include]
+ToolGroup = set[Tool | Inherit]
 
 
 class TOMLPackage(t.TypedDict):
@@ -29,7 +29,7 @@ class TOMLPackage(t.TypedDict):
 
 
 TOMLTool = PackageSpec | TOMLPackage
-TOMLToolGroup = list[TOMLTool | Include]
+TOMLToolGroup = list[TOMLTool | Inherit]
 
 
 class VenvceptionException(RuntimeError):
@@ -114,21 +114,21 @@ def _is_package_spec(value: t.Any) -> t.TypeGuard[PackageSpec]:
 
 
 @t.overload
-def _toml_to_group(toml: TOMLToolGroup, includes_allowed: t.Literal[True]) -> ToolGroup: ...
+def _toml_to_group(toml: TOMLToolGroup, inherit_allowed: t.Literal[True]) -> ToolGroup: ...
 
 
 @t.overload
-def _toml_to_group(toml: TOMLToolGroup, includes_allowed: t.Literal[False]) -> set[Tool]: ...
+def _toml_to_group(toml: TOMLToolGroup, inherit_allowed: t.Literal[False]) -> set[Tool]: ...
 
 
-def _toml_to_group(toml: TOMLToolGroup, includes_allowed: bool) -> ToolGroup | set[Tool]:
+def _toml_to_group(toml: TOMLToolGroup, inherit_allowed: bool) -> ToolGroup | set[Tool]:
     group = ToolGroup()
     for entry in toml:
         if _is_include(entry):
-            if includes_allowed:
+            if inherit_allowed:
                 group.add(entry)
             else:
-                raise VenvceptionException("Entry is an include but includes are not allowed.")
+                raise VenvceptionException("Entry is an inherit but inherits are not allowed.")
         elif _is_toml_package(entry):
             group.add((entry["name"], tuple(entry["dependencies"])))
         else:
@@ -136,7 +136,7 @@ def _toml_to_group(toml: TOMLToolGroup, includes_allowed: bool) -> ToolGroup | s
     return group
 
 
-def _is_include(value: t.Any) -> t.TypeGuard[Include]:
+def _is_include(value: t.Any) -> t.TypeGuard[Inherit]:
     return isinstance(value, dict) and "include" in value and isinstance(value["include"], str)
 
 
@@ -162,7 +162,8 @@ def _is_toml_tool_group(value: t.Any) -> t.TypeGuard[TOMLToolGroup]:
 
 def _is_toml_tool_groups(value: t.Any) -> t.TypeGuard[dict[str, TOMLToolGroup]]:
     return isinstance(value, dict) and all(
-        isinstance(name, str) and _is_toml_tool_group(group) for name, group in t.cast(dict[t.Any, t.Any], value)
+        isinstance(name, str) and _is_toml_tool_group(group)
+        for name, group in t.cast(dict[t.Any, t.Any], value).items()
     )
 
 
