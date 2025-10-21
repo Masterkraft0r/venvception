@@ -20,7 +20,7 @@ Dependencies = tuple[PackageSpec, ...]
 TOMLDependencies = list[PackageSpec]
 Package = tuple[PackageSpec, tuple[PackageSpec, ...]]
 Tool = PackageSpec | Package
-ToolGroup = set[Tool | Inherit]
+ToolGroup = list[Tool | Inherit]
 
 
 class TOMLPackage(t.TypedDict):
@@ -68,13 +68,10 @@ def venvception(extras: list[str]):
         if not isinstance(config["groups"], dict):
             raise VenvceptionException("key 'tool.venvception.groups' is not a valid collection of tool groups.")
 
-        for name, group in t.cast(dict[str, t.Any], config["groups"]):
-            for entry in group:
+        for name, group in t.cast(dict[str, t.Any], config["groups"]).items():
+            if not _is_toml_tool_group(group):
+                raise VenvceptionException(f"key 'tool.venvception.tools.{name}' is not a valid tool group.")
 
-
-        # not _is_toml_tool_groups(config["groups"]):
-    elif "groups" in config:
-        for name, group in t.cast(dict[str, TOMLToolGroup], config["groups"]).items():
             groups[name] = _toml_to_group(group, True)
 
     processed_groups: set[str] = set()
@@ -134,13 +131,13 @@ def _toml_to_group(toml: TOMLToolGroup, inherit_allowed: bool) -> ToolGroup | se
     for entry in toml:
         if _is_inherit(entry):
             if inherit_allowed:
-                group.add(entry)
+                group.append(entry)
             else:
                 raise VenvceptionException("Entry is an inherit but inherits are not allowed.")
         elif _is_toml_package(entry):
-            group.add((entry["name"], tuple(entry["dependencies"])))
+            group.append((entry["name"], tuple(entry["dependencies"])))
         else:
-            group.add(t.cast(PackageSpec, entry))
+            group.append(t.cast(PackageSpec, entry))
     return group
 
 
@@ -163,12 +160,9 @@ def _is_toml_package(value: t.Any) -> t.TypeGuard[TOMLPackage]:
 
 
 def _is_toml_tool_group(value: t.Any) -> t.TypeGuard[TOMLToolGroup]:
-    if not isinstance(value, list):
-        return value
-
-    for entry in t.cast(list[t.Any], value):
-        if not _is_package_spec(entry) and not _is_toml_package(entry) and not _is_inherit(entry):
-            raise VenvceptionException(f"{entry} is not a valid entry.")
+    return isinstance(value, list) and all(
+        _is_package_spec(entry) or _is_toml_package(entry) or _is_inherit(entry) for entry in t.cast(list[t.Any], value)
+    )
 
 
 def _is_toml_tool_groups(value: t.Any) -> t.TypeGuard[dict[str, TOMLToolGroup]]:
