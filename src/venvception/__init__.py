@@ -62,7 +62,7 @@ def venvception(extras: list[str]):
         if not _is_toml_tool_group(config["tools"]):
             raise VenvceptionException("key 'tool.venvception.tools' is not a valid tool group.")
 
-        tools = _toml_to_group(config["tools"], False)
+        tools = set(_toml_to_group(config["tools"], False))
 
     if "groups" in config:
         if not isinstance(config["groups"], dict):
