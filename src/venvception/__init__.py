@@ -38,6 +38,7 @@ class VenvceptionException(RuntimeError):
 
 
 def venvception(extras: list[str]):
+    print("venvception v0.1.0", file=sys.stderr)
     venv = p.Path(os.environ.get("UV_PROJECT_ENVIRONMENT", op.join(os.getcwd(), ".venv")))
     if not venv.is_dir():
         raise VenvceptionException("Please create a local venv before running venvception.")
@@ -50,7 +51,8 @@ def venvception(extras: list[str]):
 
     toml_path = p.Path("pyproject.toml")
     if not toml_path.is_file():
-        raise VenvceptionException("")
+        print("pyproject.toml not found. Nothing to do.", file=sys.stderr)
+        return
 
     with toml_path.open("rb") as f:
         toml = tomllib.load(f)
@@ -58,12 +60,12 @@ def venvception(extras: list[str]):
     config = _load_config(toml)
 
     if "tools" in config and not _is_toml_tool_group(config["tools"]):
-        raise VenvceptionException("")
+        raise VenvceptionException("key 'tool.venvception.tools' is not a valid tool group.")
     elif "tools" in config:
         tools = _toml_to_group(config["tools"], False)
 
     if "groups" in config and not _is_toml_tool_groups(config["groups"]):
-        raise VenvceptionException("")
+        raise VenvceptionException("key 'tool.venvception.tools' is not a valid collection of tool groups.")
     elif "groups" in config:
         for name, group in t.cast(dict[str, ToolGroup], config["groups"]).items():
             groups[name] = group
@@ -91,16 +93,18 @@ def venvception(extras: list[str]):
 
 def _load_config(toml: dict[str, t.Any]) -> dict[str, t.Any]:
     if "tool" not in toml:
+        print("key 'tool' not found in pyproject.toml. Nothing to do.", file=sys.stderr)
         return {}
 
     if not isinstance(toml["tool"], dict):
-        raise VenvceptionException("")
+        raise VenvceptionException("Key 'tool' in pyproject.toml exists but is not a dict.")
 
     if "venvception" not in toml["tool"]:
+        print("key 'tool.venvception' not found in pyproject.toml. Nothing to do.", file=sys.stderr)
         return {}
 
     if not isinstance(toml["tool"]["venvception"], dict):
-        raise VenvceptionException("")
+        raise VenvceptionException("key 'tool.venvception' in pyproject.toml exists but is not a dict.")
 
     return t.cast(dict[str, t.Any], toml["tool"]["venvception"])
 
@@ -125,7 +129,7 @@ def _toml_to_group(toml: TOMLToolGroup, includes_allowed: bool) -> ToolGroup | s
             if includes_allowed:
                 group.add(entry)
             else:
-                raise VenvceptionException("")
+                raise VenvceptionException("Entry is an include but includes are not allowed.")
         elif _is_toml_package(entry):
             group.add((entry["name"], set(entry["dependencies"])))
         else:
@@ -170,7 +174,7 @@ def _process_group(
     processed_groups: set[str] | None = None,
 ) -> tuple[set[Tool], set[str]]:
     if group_name not in groups:
-        raise VenvceptionException("")
+        raise VenvceptionException(f"Group {group_name} does not exist.")
     if processed_groups is not None and group_name in processed_groups:
         print(f"Group {group_name} already processed. Skipping.", file=sys.stderr)
         return (tools, processed_groups)
@@ -183,7 +187,7 @@ def _process_group(
     for tool in group:
         if _is_include(tool):
             if tool["include"] not in groups:
-                raise VenvceptionException("")
+                raise VenvceptionException("Included group does not exist.")
             tools, processed_groups = _process_group(tool["include"], groups, tools, processed_groups)
         else:
             tools.add(t.cast(Tool, tool))
