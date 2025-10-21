@@ -141,7 +141,7 @@ def _is_include(value: t.Any) -> t.TypeGuard[Include]:
 
 
 def _is_toml_dependencies(value: t.Any) -> t.TypeGuard[Dependencies]:
-    return isinstance(value, set) and all(_is_package_spec(x) for x in t.cast(set[t.Any], value))
+    return isinstance(value, list) and all(_is_package_spec(x) for x in t.cast(list[t.Any], value))
 
 
 def _is_toml_package(value: t.Any) -> t.TypeGuard[TOMLPackage]:
