@@ -16,12 +16,11 @@ class Include(t.TypedDict):
 
 
 PackageSpec = str
-Dependencies = set[PackageSpec]
-Package = tuple[PackageSpec, set[PackageSpec]]
+Dependencies = tuple[PackageSpec, ...]
+TOMLDependencies = list[PackageSpec]
+Package = tuple[PackageSpec, tuple[PackageSpec, ...]]
 Tool = PackageSpec | Package
 ToolGroup = set[Tool | Include]
-
-TOMLDependencies = list[PackageSpec]
 
 
 class TOMLPackage(t.TypedDict):
@@ -67,8 +66,8 @@ def venvception(extras: list[str]):
     if "groups" in config and not _is_toml_tool_groups(config["groups"]):
         raise VenvceptionException("key 'tool.venvception.tools' is not a valid collection of tool groups.")
     elif "groups" in config:
-        for name, group in t.cast(dict[str, ToolGroup], config["groups"]).items():
-            groups[name] = group
+        for name, group in t.cast(dict[str, TOMLToolGroup], config["groups"]).items():
+            groups[name] = _toml_to_group(group, True)
 
     processed_groups: set[str] = set()
     for group_name in extras:
@@ -131,7 +130,7 @@ def _toml_to_group(toml: TOMLToolGroup, includes_allowed: bool) -> ToolGroup | s
             else:
                 raise VenvceptionException("Entry is an include but includes are not allowed.")
         elif _is_toml_package(entry):
-            group.add((entry["name"], set(entry["dependencies"])))
+            group.add((entry["name"], tuple(entry["dependencies"])))
         else:
             group.add(t.cast(PackageSpec, entry))
     return group
