@@ -79,7 +79,7 @@ def venvception(extras: list[str]):
         tools, processed_groups = _process_group(group_name, groups, tools, processed_groups=processed_groups)
 
     for tool in tools:
-        cmd = "uv tool "
+        cmd = "uv tool install "
         match tool:
             case tool if _is_package_spec(tool):
                 cmd += tool
