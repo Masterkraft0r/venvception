@@ -58,13 +58,21 @@ def venvception(extras: list[str]):
 
     config = _load_config(toml)
 
-    if "tools" in config and not _is_toml_tool_group(config["tools"]):
-        raise VenvceptionException("key 'tool.venvception.tools' is not a valid tool group.")
-    elif "tools" in config:
+    if "tools" in config:
+        if not _is_toml_tool_group(config["tools"]):
+            raise VenvceptionException("key 'tool.venvception.tools' is not a valid tool group.")
+
         tools = _toml_to_group(config["tools"], False)
 
-    if "groups" in config and not _is_toml_tool_groups(config["groups"]):
-        raise VenvceptionException("key 'tool.venvception.tools' is not a valid collection of tool groups.")
+    if "groups" in config:
+        if not isinstance(config["groups"], dict):
+            raise VenvceptionException("key 'tool.venvception.groups' is not a valid collection of tool groups.")
+
+        for name, group in t.cast(dict[str, t.Any], config["groups"]):
+            for entry in group:
+
+
+        # not _is_toml_tool_groups(config["groups"]):
     elif "groups" in config:
         for name, group in t.cast(dict[str, TOMLToolGroup], config["groups"]).items():
             groups[name] = _toml_to_group(group, True)
@@ -124,7 +132,7 @@ def _toml_to_group(toml: TOMLToolGroup, inherit_allowed: t.Literal[False]) -> se
 def _toml_to_group(toml: TOMLToolGroup, inherit_allowed: bool) -> ToolGroup | set[Tool]:
     group = ToolGroup()
     for entry in toml:
-        if _is_include(entry):
+        if _is_inherit(entry):
             if inherit_allowed:
                 group.add(entry)
             else:
@@ -136,8 +144,8 @@ def _toml_to_group(toml: TOMLToolGroup, inherit_allowed: bool) -> ToolGroup | se
     return group
 
 
-def _is_include(value: t.Any) -> t.TypeGuard[Inherit]:
-    return isinstance(value, dict) and "include" in value and isinstance(value["include"], str)
+def _is_inherit(value: t.Any) -> t.TypeGuard[Inherit]:
+    return isinstance(value, dict) and "inherit" in value and isinstance(value["inherit"], str)
 
 
 def _is_toml_dependencies(value: t.Any) -> t.TypeGuard[Dependencies]:
@@ -155,9 +163,12 @@ def _is_toml_package(value: t.Any) -> t.TypeGuard[TOMLPackage]:
 
 
 def _is_toml_tool_group(value: t.Any) -> t.TypeGuard[TOMLToolGroup]:
-    return isinstance(value, list) and all(
-        _is_package_spec(entry) or _is_toml_package(entry) or _is_include(entry) for entry in t.cast(list[t.Any], value)
-    )
+    if not isinstance(value, list):
+        return value
+
+    for entry in t.cast(list[t.Any], value):
+        if not _is_package_spec(entry) and not _is_toml_package(entry) and not _is_inherit(entry):
+            raise VenvceptionException(f"{entry} is not a valid entry.")
 
 
 def _is_toml_tool_groups(value: t.Any) -> t.TypeGuard[dict[str, TOMLToolGroup]]:
@@ -185,10 +196,10 @@ def _process_group(
 
     group = groups[group_name]
     for tool in group:
-        if _is_include(tool):
-            if tool["include"] not in groups:
+        if _is_inherit(tool):
+            if tool["inherit"] not in groups:
                 raise VenvceptionException("Included group does not exist.")
-            tools, processed_groups = _process_group(tool["include"], groups, tools, processed_groups)
+            tools, processed_groups = _process_group(tool["inherit"], groups, tools, processed_groups)
         else:
             tools.add(t.cast(Tool, tool))
 
