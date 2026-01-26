@@ -36,7 +36,7 @@ class VenvceptionException(RuntimeError):
     pass
 
 
-def venvception(extras: list[str]):
+def venvception(extras: list[str], force: bool = False):
     print("venvception v0.1.0", file=sys.stderr)
     venv_path = p.Path(os.environ.get("UV_PROJECT_ENVIRONMENT", op.join(os.getcwd(), ".venv")))
     if not venv_path.is_dir():
@@ -86,8 +86,12 @@ def venvception(extras: list[str]):
                 args = " ".join((f'--with "{dep}"' for dep in dependencies)) + " " + name
             case _:
                 raise VenvceptionException("Can not happen.")
+        command = "uv tool install "
+        if force:
+            command += "--force "
+        command += args
         _ = sp.run(
-            f"uv tool install {args}",
+            command,
             shell=True,
             env=os.environ | {"XDG_BIN_HOME": str(venv_path / "bin"), "XDG_DATA_HOME": str(xdg_data_project)},
             encoding="utf-8",
@@ -222,11 +226,12 @@ def _process_group(
 
 def main():
     parser = ap.ArgumentParser("venvception")
+    parser.add_argument("--force", "-f", action="store_true", default=False)
     parser.add_argument("extra", nargs="*", default=[])
     args = parser.parse_args(sys.argv[1:])
 
     try:
-        venvception(args.extra)
+        venvception(args.extra, args.force)
     except VenvceptionException as e:
         print(f"ERROR: {str(e)}", file=sys.stderr)
         return 1
