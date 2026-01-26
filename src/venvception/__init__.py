@@ -38,11 +38,11 @@ class VenvceptionException(RuntimeError):
 
 def venvception(extras: list[str]):
     print("venvception v0.1.0", file=sys.stderr)
-    venv = p.Path(os.environ.get("UV_PROJECT_ENVIRONMENT", op.join(os.getcwd(), ".venv")))
-    if not venv.is_dir():
+    venv_path = p.Path(os.environ.get("UV_PROJECT_ENVIRONMENT", op.join(os.getcwd(), ".venv")))
+    if not venv_path.is_dir():
         raise VenvceptionException("Please create a local venv before running venvception.")
 
-    xdg_data_project = venv / "share"
+    xdg_data_project = venv_path / "share"
     xdg_data_project.mkdir(exist_ok=True)
 
     tools: set[Tool] = set()
@@ -93,6 +93,25 @@ def venvception(extras: list[str]):
             env=os.environ | {"XDG_DATA_HOME": str(xdg_data_project)},
             encoding="utf-8",
         )
+
+    try:
+        grep_output = (
+            sp.check_output(
+                f"grep -rn 'from collections import MutableMapping' {venv_path}", shell=True, encoding="utf-8"
+            )
+            .strip()
+            .split("\n")
+        )
+        matches = [
+            (file_path, line_number) for line in grep_output for (file_path, line_number, _) in [line.split(":")]
+        ]
+        for file_path, line_number in matches:
+            sp.check_call(
+                f"sed -i '{line_number}s/from collections import MutableMapping/from collections\\.abc import MutableMapping/' {file_path}",
+                shell=True,
+            )
+    except:
+        pass
 
 
 def _load_config(toml: dict[str, t.Any]) -> dict[str, t.Any]:
