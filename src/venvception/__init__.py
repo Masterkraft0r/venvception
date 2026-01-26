@@ -97,7 +97,9 @@ def venvception(extras: list[str]):
     try:
         grep_output = (
             sp.check_output(
-                f"grep -rn 'from collections import MutableMapping' {venv_path}", shell=True, encoding="utf-8"
+                f"grep --recursive --line-number --binary-files=without-match 'from collections import MutableMapping' {venv_path}",
+                shell=True,
+                encoding="utf-8",
             )
             .strip()
             .split("\n")
