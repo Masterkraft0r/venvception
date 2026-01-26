@@ -79,18 +79,17 @@ def venvception(extras: list[str]):
         tools, processed_groups = _process_group(group_name, groups, tools, processed_groups=processed_groups)
 
     for tool in tools:
-        cmd = "uv tool install "
         match tool:
             case tool if _is_package_spec(tool):
-                cmd += tool
+                args = tool
             case (name, dependencies):
-                cmd += " ".join((f'--with "{dep}"' for dep in dependencies)) + " " + name
+                args = " ".join((f'--with "{dep}"' for dep in dependencies)) + " " + name
             case _:
                 raise VenvceptionException("Can not happen.")
         _ = sp.run(
-            cmd,
+            f"uv tool install {args}",
             shell=True,
-            env=os.environ | {"XDG_DATA_HOME": str(xdg_data_project)},
+            env=os.environ | {"XDG_BIN_HOME": str(venv_path / "bin"), "XDG_DATA_HOME": str(xdg_data_project)},
             encoding="utf-8",
         )
 
